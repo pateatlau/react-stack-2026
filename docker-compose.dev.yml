@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  react-app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - '5173:5173'
+      - '24678:24678'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DOCKER=true
+      - VITE_HOST=0.0.0.0
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
