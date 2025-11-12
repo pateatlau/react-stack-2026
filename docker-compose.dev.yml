@@ -15,6 +15,7 @@ services:
       - NODE_ENV=development
       - DOCKER=true
       - VITE_HOST=0.0.0.0
+      - VITE_API_URL=http://localhost:4000
     restart: unless-stopped
     stdin_open: true
     tty: true
