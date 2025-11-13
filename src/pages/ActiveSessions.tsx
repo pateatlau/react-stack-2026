@@ -16,7 +16,7 @@
 
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { useActiveSessions } from '../hooks/useActiveSessions';
+import { useActiveSessions } from '../contexts/ActiveSessionsContext';
 import { useToast } from '../contexts/ToastContext';
 import { SessionSkeletons } from '../components/SessionSkeleton';
 

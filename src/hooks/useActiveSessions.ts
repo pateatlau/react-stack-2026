@@ -56,7 +56,13 @@ export function useActiveSessions(): UseActiveSessionsReturn {
 
   // Fetch active sessions
   const fetchSessions = useCallback(async () => {
+    console.log('[useActiveSessions] fetchSessions called', {
+      isAuthenticated,
+      hasToken: !!accessToken,
+    });
+
     if (!isAuthenticated || !accessToken) {
+      console.log('[useActiveSessions] Not authenticated, clearing sessions');
       setSessions([]);
       return;
     }
@@ -65,6 +71,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     setError(null);
 
     try {
+      console.log('[useActiveSessions] Fetching from:', `${API_BASE_URL}/api/auth/sessions`);
       const response = await fetch(`${API_BASE_URL}/api/auth/sessions`, {
         method: 'GET',
         headers: {
@@ -73,11 +80,14 @@ export function useActiveSessions(): UseActiveSessionsReturn {
         },
       });
 
+      console.log('[useActiveSessions] Response status:', response.status);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch sessions: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('[useActiveSessions] Response data:', data);
 
       if (data.success && data.data) {
         // Backend returns data.data.sessions (nested structure)
@@ -86,6 +96,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
           : Array.isArray(data.data)
             ? data.data
             : [];
+        console.log('[useActiveSessions] Sessions array:', sessionsArray.length, 'sessions');
         setSessions(sessionsArray);
       } else {
         throw new Error(data.message || 'Failed to fetch sessions');
@@ -184,29 +195,52 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     }
   }, [accessToken, isAuthenticated, fetchSessions]);
 
-  // Auto-fetch on mount and when auth state changes
+  // Auto-fetch on mount
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
 
   // Listen for session updates via WebSocket
+  // Use a ref to avoid dependency on fetchSessions
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) {
+      console.log('[useActiveSessions] Socket not available');
+      return;
+    }
 
-    const handleSessionUpdate = () => {
-      console.log('[useActiveSessions] Session update received, refreshing list...');
+    const handleSessionUpdate = (data: { timestamp: number }) => {
+      console.log('[useActiveSessions] Session update received:', data);
+      // Refetch sessions when broadcast received
       fetchSessions();
     };
 
+    const handleConnect = () => {
+      console.log('[useActiveSessions] Socket connected, fetching sessions');
+      fetchSessions();
+    };
+
+    const handleDisconnect = (reason: string) => {
+      console.log('[useActiveSessions] Socket disconnected:', reason);
+    };
+
+    // Listen to session updates
     socket.on('session-update', handleSessionUpdate);
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    console.log('[useActiveSessions] WebSocket listeners registered');
 
     return () => {
       socket.off('session-update', handleSessionUpdate);
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      console.log('[useActiveSessions] WebSocket listeners removed');
     };
-  }, [isAuthenticated, fetchSessions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]); // Only depend on isAuthenticated, fetchSessions is in the closure
 
   return {
     sessions,

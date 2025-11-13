@@ -20,6 +20,7 @@ import { CrossDeviceAuthSync } from './components/CrossDeviceAuthSync';
 import { CrossTabSyncErrorBoundary } from './components/CrossTabSyncErrorBoundary';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { SessionProvider } from './contexts/SessionContext';
+import { ActiveSessionsProvider } from './contexts/ActiveSessionsContext';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -28,7 +29,9 @@ function App() {
       <ApolloProvider client={apolloClient}>
         <ToastProvider>
           <SessionProvider pollInterval={30000} warningThreshold={60000}>
-            <AppContent />
+            <ActiveSessionsProvider>
+              <AppContent />
+            </ActiveSessionsProvider>
           </SessionProvider>
         </ToastProvider>
         <ReactQueryDevtools initialIsOpen={false} />

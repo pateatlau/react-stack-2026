@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "npm run use:local && vite",
+    "dev:caddy": "npm run use:caddy && vite",
+    "use:local": "cp .env.local .env.development && echo '✓ Switched to LOCAL backend (port 4000)'",
+    "use:caddy": "cp .env.caddy .env.development && echo '✓ Switched to CADDY backend (port 8080)'",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",

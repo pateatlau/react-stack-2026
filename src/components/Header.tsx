@@ -7,7 +7,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { useSession } from '../contexts/SessionContext';
-import { useActiveSessions } from '../hooks/useActiveSessions';
+import { useActiveSessions } from '../contexts/ActiveSessionsContext';
 import { LogOut, Clock, User } from 'lucide-react';
 
 export function Header() {
@@ -15,6 +15,9 @@ export function Header() {
   const location = useLocation();
   const { timeRemainingMs, isExpired } = useSession();
   const { sessions } = useActiveSessions();
+
+  // Debug log to see if Header re-renders with updated sessions
+  console.log('[HEADER] Rendering with sessions count:', sessions.length, sessions);
 
   const handleLogout = async () => {
     await logout();
