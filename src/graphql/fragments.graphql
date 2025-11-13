@@ -1,0 +1,8 @@
+# Fragment for Todo fields (reusable)
+fragment TodoFields on Todo {
+  id
+  title
+  completed
+  createdAt
+  updatedAt
+}

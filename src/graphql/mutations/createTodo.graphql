@@ -1,0 +1,8 @@
+#import "../fragments.graphql"
+
+# Mutation to create a new todo
+mutation CreateTodo($input: CreateTodoInput!) {
+  createTodo(input: $input) {
+    ...TodoFields
+  }
+}

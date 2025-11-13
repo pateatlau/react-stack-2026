@@ -1,0 +1,22 @@
+#import "../fragments.graphql"
+
+# Query to get paginated list of todos
+query GetTodos(
+  $page: Int
+  $limit: Int
+  $filter: TodoFilterInput
+  $sortBy: TodoSortField
+  $sortOrder: SortOrder
+) {
+  todos(page: $page, limit: $limit, filter: $filter, sortBy: $sortBy, sortOrder: $sortOrder) {
+    data {
+      ...TodoFields
+    }
+    meta {
+      total
+      page
+      limit
+      totalPages
+    }
+  }
+}

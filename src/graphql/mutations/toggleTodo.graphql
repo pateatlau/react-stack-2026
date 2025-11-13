@@ -1,0 +1,8 @@
+#import "../fragments.graphql"
+
+# Mutation to toggle todo completion status
+mutation ToggleTodo($id: ID!) {
+  toggleTodo(id: $id) {
+    ...TodoFields
+  }
+}

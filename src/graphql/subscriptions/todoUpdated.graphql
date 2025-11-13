@@ -1,0 +1,8 @@
+#import "../fragments.graphql"
+
+# Subscription for real-time todo updates
+subscription TodoUpdated {
+  todoUpdated {
+    ...TodoFields
+  }
+}

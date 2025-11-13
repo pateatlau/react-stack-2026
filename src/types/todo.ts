@@ -1,36 +1,37 @@
-export interface Todo {
-  id: string;
-  title: string;
-  completed: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+/**
+ * Frontend types for Todo application
+ *
+ * These types are imported from the backend shared schemas
+ * to ensure type consistency across the full stack.
+ */
 
-export interface CreateTodoInput {
-  title: string;
-  completed?: boolean;
-}
+// Re-export types from backend shared schemas (use '../shared' for Docker, 'todo-backend/shared' for local)
+export type {
+  Todo,
+  CreateTodoInput,
+  UpdateTodoInput,
+  TodoQueryParams,
+  PaginationMeta,
+  ApiError,
+} from '../shared';
 
-export interface UpdateTodoInput {
-  title?: string;
-  completed?: boolean;
-}
+// Re-export schemas for validation
+export {
+  TodoSchema,
+  CreateTodoInputSchema,
+  UpdateTodoInputSchema,
+  TodoQueryParamsSchema,
+  safeValidateCreateTodo,
+  safeValidateUpdateTodo,
+} from '../shared';
+
+// Frontend-specific type aliases for convenience
+export type { Todo as TodosResponse } from '../shared';
+
+// Paginated response type (combining backend types)
+import type { Todo, PaginationMeta } from '../shared';
 
 export interface PaginatedTodosResponse {
   data: Todo[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-export interface ApiError {
-  error: string;
-  details?: Array<{
-    field: string;
-    message: string;
-    code: string;
-  }>;
+  meta: PaginationMeta;
 }

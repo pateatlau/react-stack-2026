@@ -1,0 +1,4 @@
+# Mutation to delete a todo
+mutation DeleteTodo($id: ID!) {
+  deleteTodo(id: $id)
+}

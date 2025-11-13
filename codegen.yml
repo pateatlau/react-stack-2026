@@ -1,0 +1,79 @@
+# GraphQL Code Generator Configuration
+# This generates TypeScript types and React hooks from the GraphQL schema
+
+# Where to fetch the GraphQL schema from
+schema: http://localhost:4000/graphql
+
+# Where to find GraphQL operation files (queries, mutations, subscriptions)
+documents:
+  - 'src/graphql/**/*.graphql'
+  - 'src/graphql/**/*.gql'
+
+# Output configuration
+generates:
+  # Generate TypeScript types from schema
+  src/generated/graphql.ts:
+    plugins:
+      # Generate base TypeScript types from schema
+      - typescript
+      # Generate types for GraphQL operations
+      - typescript-operations
+      # Generate React Apollo hooks (useQuery, useMutation, etc.)
+      - typescript-react-apollo
+    config:
+      # Use Apollo Client v4+ with separate React imports
+      apolloClientVersion: 4
+      # Use React 18+ hooks
+      withHooks: true
+      # Add __typename to all objects
+      addTypename: true
+      # Skip generating __typename field
+      skipTypename: false
+      # Use import type for types
+      useTypeImports: true
+      # Don't generate fragment matchers (not needed for InMemoryCache)
+      preResolveTypes: true
+      # Avoid optional chaining
+      avoidOptionals: false
+      # Make all fields non-optional by default
+      maybeValue: T | null
+      # Input types should allow undefined
+      inputMaybeValue: T | null | undefined
+      # Enumeration as const
+      enumsAsTypes: false
+      # Future proof
+      futureProofEnums: true
+      # Immutable types
+      immutableTypes: false
+      # Use proper React Apollo imports
+      reactApolloVersion: 3
+      withComponent: false
+      withHOC: false
+      # Naming conventions
+      namingConvention:
+        typeNames: pascal-case#pascalCase
+        enumValues: keep
+        transformUnderscore: true
+      # Scalars mapping
+      scalars:
+        DateTime: string
+        JSON: Record<string, any>
+      # Hook suffix
+      hooksSuffix: ''
+      # Deduplication
+      dedupeFragments: true
+      # Skip no operation
+      skipNoOperations: true
+
+  # Generate introspection result (useful for Apollo Client)
+  src/generated/introspection.json:
+    plugins:
+      - introspection
+    config:
+      minify: true
+
+# Hooks configuration
+hooks:
+  afterAllFileWrite:
+    # Format generated files with prettier (if available)
+    - prettier --write

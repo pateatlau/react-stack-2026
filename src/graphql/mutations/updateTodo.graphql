@@ -1,0 +1,8 @@
+#import "../fragments.graphql"
+
+# Mutation to update an existing todo
+mutation UpdateTodo($id: ID!, $input: UpdateTodoInput!) {
+  updateTodo(id: $id, input: $input) {
+    ...TodoFields
+  }
+}

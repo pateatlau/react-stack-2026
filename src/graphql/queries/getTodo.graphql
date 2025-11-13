@@ -1,0 +1,8 @@
+#import "../fragments.graphql"
+
+# Query to get a single todo by ID
+query GetTodo($id: ID!) {
+  todo(id: $id) {
+    ...TodoFields
+  }
+}

@@ -1,10 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { useTodos, useCreateTodo, useToggleTodo, useDeleteTodo } from '../hooks/useTodos';
+import type { CreateTodoInput } from '../types/todo';
+import TodoForm from './TodoForm';
 import Button from './Button';
 
 export default function TodoList() {
-  const [newTodoTitle, setNewTodoTitle] = useState('');
   const [page, setPage] = useState(1);
+  const [showForm, setShowForm] = useState(false);
   const limit = 10;
 
   // Queries
@@ -15,16 +18,9 @@ export default function TodoList() {
   const toggleTodo = useToggleTodo();
   const deleteTodo = useDeleteTodo();
 
-  const handleCreate = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newTodoTitle.trim()) return;
-
-    try {
-      await createTodo.mutateAsync({ title: newTodoTitle.trim() });
-      setNewTodoTitle('');
-    } catch (err) {
-      console.error('Failed to create todo:', err);
-    }
+  const handleCreate = async (input: CreateTodoInput) => {
+    await createTodo.mutateAsync(input);
+    setShowForm(false);
   };
 
   if (isLoading) {
@@ -49,29 +45,50 @@ export default function TodoList() {
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-2xl mx-auto px-6">
-        <h1 className="text-3xl font-bold mb-8 text-slate-800">Todo List</h1>
+        {/* Navigation */}
+        <div className="mb-6">
+          <Link
+            to="/"
+            className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
 
-        {/* Create Todo Form */}
-        <form onSubmit={handleCreate} className="mb-8">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={newTodoTitle}
-              onChange={(e) => setNewTodoTitle(e.target.value)}
-              placeholder="Add a new todo..."
-              className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              disabled={createTodo.isPending}
-            />
-            <Button type="submit" disabled={createTodo.isPending || !newTodoTitle.trim()}>
-              {createTodo.isPending ? 'Adding...' : 'Add Todo'}
+        <h1 className="text-3xl font-bold mb-8 text-slate-800">Todo List (REST API)</h1>
+
+        {/* Create Todo Form - Toggle visibility */}
+        <div className="mb-8">
+          {!showForm ? (
+            <Button
+              onClick={() => setShowForm(true)}
+              className="w-full bg-blue-500 hover:bg-blue-600"
+            >
+              + Add New Todo
             </Button>
-          </div>
-          {createTodo.error && (
-            <div className="mt-2 text-sm text-red-500">
-              Failed to create todo: {createTodo.error.message}
+          ) : (
+            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-slate-800">Create New Todo</h2>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <TodoForm onSubmit={handleCreate} isSubmitting={createTodo.isPending} />
             </div>
           )}
-        </form>
+        </div>
 
         {/* Todo List */}
         <div className="space-y-3">
