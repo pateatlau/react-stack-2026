@@ -5,7 +5,7 @@
  */
 
 import React, { createContext, useContext } from 'react';
-import { useSession as useSessionHook } from '../hooks/useSession';
+import { useSessionTimer } from '../hooks/useSessionTimer';
 import { useAuth } from '../hooks/useAuth';
 
 interface SessionContextType {
@@ -13,9 +13,6 @@ interface SessionContextType {
   timeRemainingMinutes: number | null;
   isExpired: boolean;
   lastActivityAt: Date | null;
-  isChecking: boolean;
-  error: string | null;
-  checkSession: () => Promise<void>;
   formatTimeRemaining: (ms: number) => string;
 }
 
@@ -23,7 +20,6 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 interface SessionProviderProps {
   children: React.ReactNode;
-  pollInterval?: number;
   warningThreshold?: number;
   onSessionExpired?: () => void;
   onSessionWarning?: (timeRemainingMs: number) => void;
@@ -31,16 +27,11 @@ interface SessionProviderProps {
 
 export function SessionProvider({
   children,
-  pollInterval = 30000,
   warningThreshold = 60000,
   onSessionExpired,
   onSessionWarning,
 }: SessionProviderProps) {
-  const { isAuthenticated } = useAuth();
-
-  const sessionData = useSessionHook({
-    enabled: isAuthenticated, // Only poll when authenticated
-    pollInterval,
+  const sessionData = useSessionTimer({
     warningThreshold,
     onSessionExpired,
     onSessionWarning,

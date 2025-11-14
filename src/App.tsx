@@ -18,6 +18,7 @@ import { SessionManager } from './components/SessionManager';
 import { CrossTabAuthSync } from './components/CrossTabAuthSync';
 import { CrossDeviceAuthSync } from './components/CrossDeviceAuthSync';
 import { CrossTabSyncErrorBoundary } from './components/CrossTabSyncErrorBoundary';
+import { SessionExpiredListener } from './components/SessionExpiredListener';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { ActiveSessionsProvider } from './contexts/ActiveSessionsContext';
@@ -28,7 +29,7 @@ function App() {
     <BrowserRouter>
       <ApolloProvider client={apolloClient}>
         <ToastProvider>
-          <SessionProvider pollInterval={30000} warningThreshold={60000}>
+          <SessionProvider warningThreshold={60000}>
             <ActiveSessionsProvider>
               <AppContent />
             </ActiveSessionsProvider>
@@ -48,6 +49,9 @@ function AppContent() {
     <>
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+
+      {/* Session Expired Listener - Global handler for SESSION_EXPIRED errors */}
+      <SessionExpiredListener />
 
       {/* Cross-Tab Auth Sync - Sync login/logout across tabs */}
       <CrossTabSyncErrorBoundary>

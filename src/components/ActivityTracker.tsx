@@ -23,18 +23,32 @@ export function ActivityTracker({
 }: ActivityTrackerProps) {
   const { isAuthenticated } = useAuth();
   const lastActivityRef = useRef<number>(0);
+  const lastBroadcastRef = useRef<number>(0);
   const isUpdatingRef = useRef<boolean>(false);
 
   const updateActivity = useCallback(async () => {
-    if (!isAuthenticated || isUpdatingRef.current) {
+    if (!isAuthenticated) {
       return;
     }
 
     const now = Date.now();
-    const timeSinceLastUpdate = now - lastActivityRef.current;
+    const timeSinceLastBroadcast = now - lastBroadcastRef.current;
 
-    // Only update if throttle interval has passed
-    if (timeSinceLastUpdate < throttleInterval) {
+    // Throttle broadcasts to once per second to avoid overwhelming the timer
+    if (timeSinceLastBroadcast >= 1000) {
+      // Broadcast activity to frontend immediately (for local timer)
+      window.dispatchEvent(
+        new CustomEvent('session-activity-updated', {
+          detail: { timestamp: now },
+        })
+      );
+
+      lastBroadcastRef.current = now;
+    }
+
+    // Only update backend if throttle interval has passed
+    const timeSinceLastUpdate = now - lastActivityRef.current;
+    if (timeSinceLastUpdate < throttleInterval || isUpdatingRef.current) {
       return;
     }
 
@@ -44,17 +58,12 @@ export function ActivityTracker({
     try {
       // Fetch user info to trigger lastActivityAt update on backend
       await authApi.getCurrentUser();
-      if (debug) {
-        console.log('[ActivityTracker] Activity updated at', new Date().toISOString());
-      }
     } catch (error) {
-      if (debug) {
-        console.error('[ActivityTracker] Failed to update activity:', error);
-      }
+      // Failed to update activity
     } finally {
       isUpdatingRef.current = false;
     }
-  }, [isAuthenticated, throttleInterval, debug]);
+  }, [isAuthenticated, throttleInterval]);
 
   useEffect(() => {
     if (!enabled || !isAuthenticated) {
@@ -67,27 +76,21 @@ export function ActivityTracker({
     };
 
     // Listen to various user activity events
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
+    // Use capture phase to catch events early
+    const events = ['mousedown', 'mousemove', 'keydown', 'click'] as const;
 
     // Add event listeners
     events.forEach((event) => {
       window.addEventListener(event, handleActivity, { passive: true });
     });
 
-    if (debug) {
-      console.log('[ActivityTracker] Started tracking activity');
-    }
-
     // Cleanup
     return () => {
       events.forEach((event) => {
         window.removeEventListener(event, handleActivity);
       });
-      if (debug) {
-        console.log('[ActivityTracker] Stopped tracking activity');
-      }
     };
-  }, [enabled, isAuthenticated, updateActivity, debug]);
+  }, [enabled, isAuthenticated, updateActivity]);
 
   // This component doesn't render anything
   return null;

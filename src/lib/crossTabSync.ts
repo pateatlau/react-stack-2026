@@ -63,10 +63,6 @@ export function broadcastAuthEvent(event: AuthEvent): void {
     // Write to localStorage to trigger storage event
     localStorage.setItem(AUTH_EVENT_KEY, JSON.stringify(eventWithTabId));
 
-    if (DEBUG) {
-      console.log('[CrossTabSync] Broadcasting event:', eventWithTabId.type);
-    }
-
     // Clean up after a short delay
     setTimeout(() => {
       try {
@@ -103,23 +99,13 @@ export function listenToAuthEvents(onEvent: (event: AuthEvent) => void): () => v
 
       // Validate event structure
       if (!event.type || typeof event.timestamp !== 'number') {
-        if (DEBUG) {
-          console.warn('[CrossTabSync] Invalid auth event structure:', event);
-        }
         return;
       }
 
       // Ignore events older than EVENT_MAX_AGE (stale events)
       const age = Date.now() - event.timestamp;
       if (age > EVENT_MAX_AGE) {
-        if (DEBUG) {
-          console.warn('[CrossTabSync] Ignoring stale event (age:', age, 'ms)');
-        }
         return;
-      }
-
-      if (DEBUG) {
-        console.log('[CrossTabSync] Received event:', event.type, 'from', event.tabId || 'unknown');
       }
 
       onEvent(event);
@@ -158,9 +144,6 @@ export function getAuthStateFromStorage(): {
 
     // Validate state structure
     if (!state || typeof state !== 'object') {
-      if (DEBUG) {
-        console.warn('[CrossTabSync] Invalid auth state structure');
-      }
       return null;
     }
 

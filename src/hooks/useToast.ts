@@ -29,6 +29,10 @@ export function useToast() {
     return id;
   }, []);
 
+  const updateToast = useCallback((id: string, message: string) => {
+    setToasts((prev) => prev.map((toast) => (toast.id === id ? { ...toast, message } : toast)));
+  }, []);
+
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
@@ -61,6 +65,7 @@ export function useToast() {
   return {
     toasts,
     addToast,
+    updateToast,
     removeToast,
     clearAllToasts,
     success,

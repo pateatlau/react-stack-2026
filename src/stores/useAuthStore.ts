@@ -33,16 +33,6 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => {
-      console.log('[AuthStore] Store initialized');
-
-      // Wrap set to log all state changes
-      const loggedSet: typeof set = (partial) => {
-        console.log('[AuthStore] State update called with:', partial);
-        const result = set(partial);
-        console.log('[AuthStore] New state after update:', get());
-        return result;
-      };
-
       return {
         // Initial state
         user: null,
@@ -53,11 +43,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Login action
         login: async (credentials: LoginCredentials) => {
-          console.log('[AuthStore] LOGIN FUNCTION CALLED');
-          console.log('[AuthStore] Login started, clearing error');
-          console.log('[AuthStore] Setting isLoading: true, error: null (login)');
-          console.trace();
-          loggedSet({ isLoading: true, error: null });
+          set({ isLoading: true, error: null });
           try {
             const response = await authApi.login(credentials);
 
@@ -67,8 +53,7 @@ export const useAuthStore = create<AuthState>()(
               // Store access token in localStorage (persisted)
               localStorage.setItem('accessToken', accessToken);
 
-              console.log('[AuthStore] Login successful, clearing error');
-              loggedSet({
+              set({
                 user,
                 accessToken,
                 isAuthenticated: true,
@@ -90,29 +75,25 @@ export const useAuthStore = create<AuthState>()(
             } else {
               // Set error if login failed (no throw needed)
               const errorMessage = response.message || 'Login failed';
-              console.log('[AuthStore] Login failed, setting error:', errorMessage);
-              loggedSet({
+              set({
                 user: null,
                 accessToken: null,
                 isAuthenticated: false,
                 isLoading: false,
                 error: errorMessage,
               });
-              console.log('[AuthStore] Error state set, current error:', get().error);
               return;
             }
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'An error occurred during login';
-            console.log('[AuthStore] Login failed, setting error:', errorMessage);
-            loggedSet({
+            set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
               isLoading: false,
               error: errorMessage,
             });
-            console.log('[AuthStore] Error state set, current error:', get().error);
             // Don't throw - error is already in state for UI to display
           }
         },
@@ -121,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
         signup: async (signupData: SignupData) => {
           console.log('[AuthStore] Setting isLoading: true, error: null (signup)');
           console.trace();
-          loggedSet({ isLoading: true, error: null });
+          set({ isLoading: true, error: null });
           try {
             const response = await authApi.signup(signupData);
 
@@ -131,7 +112,7 @@ export const useAuthStore = create<AuthState>()(
               // Store access token
               localStorage.setItem('accessToken', accessToken);
 
-              loggedSet({
+              set({
                 user,
                 accessToken,
                 isAuthenticated: true,
@@ -158,7 +139,7 @@ export const useAuthStore = create<AuthState>()(
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'An error occurred during signup';
-            loggedSet({
+            set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
@@ -185,7 +166,7 @@ export const useAuthStore = create<AuthState>()(
             localStorage.removeItem('accessToken');
             localStorage.removeItem('user');
 
-            loggedSet({
+            set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
@@ -209,7 +190,7 @@ export const useAuthStore = create<AuthState>()(
 
             localStorage.setItem('accessToken', accessToken);
 
-            loggedSet({
+            set({
               accessToken,
               error: null,
             });
@@ -224,11 +205,11 @@ export const useAuthStore = create<AuthState>()(
         fetchUser: async () => {
           console.log('[AuthStore] Setting isLoading: true, error: null (fetchUser)');
           console.trace();
-          loggedSet({ isLoading: true, error: null });
+          set({ isLoading: true, error: null });
           try {
             const user = await authApi.getCurrentUser();
 
-            loggedSet({
+            set({
               user,
               isAuthenticated: true,
               isLoading: false,
@@ -236,7 +217,7 @@ export const useAuthStore = create<AuthState>()(
             });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user';
-            loggedSet({
+            set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
@@ -247,14 +228,14 @@ export const useAuthStore = create<AuthState>()(
         },
 
         // Clear error
-        clearError: () => loggedSet({ error: null }),
+        clearError: () => set({ error: null }),
         setError: (error: string) => {
           console.log('[AuthStore] setError called with:', error);
-          loggedSet({ error });
+          set({ error });
         },
 
         // Set user (for manual updates)
-        setUser: (user: User | null) => loggedSet({ user, isAuthenticated: !!user }),
+        setUser: (user: User | null) => set({ user, isAuthenticated: !!user }),
 
         // Set access token (for manual updates)
         setAccessToken: (token: string | null) => {
@@ -263,7 +244,7 @@ export const useAuthStore = create<AuthState>()(
           } else {
             localStorage.removeItem('accessToken');
           }
-          loggedSet({ accessToken: token });
+          set({ accessToken: token });
         },
       };
     },

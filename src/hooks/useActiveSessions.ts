@@ -55,13 +55,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
 
   // Fetch active sessions
   const fetchSessions = useCallback(async () => {
-    console.log('[useActiveSessions] fetchSessions called', {
-      isAuthenticated,
-      hasToken: !!accessToken,
-    });
-
     if (!isAuthenticated || !accessToken) {
-      console.log('[useActiveSessions] Not authenticated, clearing sessions');
       setSessions([]);
       return;
     }
@@ -70,9 +64,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     setError(null);
 
     try {
-      console.log('[useActiveSessions] Fetching sessions via apiClient');
       const response = await apiClient.get('/api/auth/sessions');
-      console.log('[useActiveSessions] Response data:', response.data);
 
       if (response.data.success && response.data.data) {
         // Backend returns data.data.sessions (nested structure)
@@ -81,7 +73,6 @@ export function useActiveSessions(): UseActiveSessionsReturn {
           : Array.isArray(response.data.data)
             ? response.data.data
             : [];
-        console.log('[useActiveSessions] Sessions array:', sessionsArray.length, 'sessions');
         setSessions(sessionsArray);
       } else {
         throw new Error(response.data.message || 'Failed to fetch sessions');
@@ -98,18 +89,14 @@ export function useActiveSessions(): UseActiveSessionsReturn {
         if (error.response?.status === 401) {
           const errorCode = error.response?.data?.code;
 
-          console.log('[useActiveSessions] 401 error detected, code:', errorCode);
-
           // If session expired, logout the user
           if (errorCode === 'SESSION_EXPIRED') {
-            console.log('[useActiveSessions] Session expired, logging out user');
             await logout();
             // Don't set error state since we're logging out
             return;
           }
 
           // For other 401 errors, also logout as the token is invalid
-          console.log('[useActiveSessions] Invalid token, logging out user');
           await logout();
           return;
         }
@@ -132,6 +119,10 @@ export function useActiveSessions(): UseActiveSessionsReturn {
 
       setError(null);
 
+      // OPTIMISTIC UPDATE: Remove session from list immediately
+      const previousSessions = sessions;
+      setSessions((prev) => prev.filter((session) => session.id !== sessionId));
+
       try {
         // First, emit WebSocket event for immediate logout
         const socket = getSocket();
@@ -146,17 +137,18 @@ export function useActiveSessions(): UseActiveSessionsReturn {
           throw new Error(response.data.message || 'Failed to logout device');
         }
 
-        // Refresh sessions list
+        // Refresh sessions list to ensure accuracy (will sync from server)
         await fetchSessions();
       } catch (err: unknown) {
+        // ROLLBACK: Restore previous sessions on error
+        setSessions(previousSessions);
+
         // Check if it's a 401 error
         if (err && typeof err === 'object' && 'response' in err) {
           const error = err as { response?: { status?: number; data?: { code?: string } } };
 
           if (error.response?.status === 401) {
-            console.log('[useActiveSessions] 401 during logout device, logging out user');
             await logout();
-            return;
           }
         }
 
@@ -165,7 +157,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
         throw err;
       }
     },
-    [accessToken, isAuthenticated, fetchSessions, logout]
+    [accessToken, isAuthenticated, sessions, fetchSessions, logout]
   );
 
   // Logout all other devices (keep current session)
@@ -176,6 +168,10 @@ export function useActiveSessions(): UseActiveSessionsReturn {
 
     setError(null);
 
+    // OPTIMISTIC UPDATE: Keep only current session in list
+    const previousSessions = sessions;
+    setSessions((prev) => prev.filter((session) => session.sessionToken === accessToken));
+
     try {
       // Call API to delete all other sessions using apiClient
       // The backend will handle WebSocket broadcast with excludeSessionToken
@@ -185,9 +181,12 @@ export function useActiveSessions(): UseActiveSessionsReturn {
         throw new Error(response.data.message || 'Failed to logout all devices');
       }
 
-      // Refresh sessions list
+      // Refresh sessions list to ensure accuracy (will sync from server)
       await fetchSessions();
     } catch (err: unknown) {
+      // ROLLBACK: Restore previous sessions on error
+      setSessions(previousSessions);
+
       // Check if it's a 401 error
       if (err && typeof err === 'object' && 'response' in err) {
         const error = err as { response?: { status?: number; data?: { code?: string } } };
@@ -203,7 +202,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
       setError(errorMessage);
       throw err;
     }
-  }, [accessToken, isAuthenticated, fetchSessions, logout]);
+  }, [accessToken, isAuthenticated, sessions, fetchSessions, logout]);
 
   // Auto-fetch on mount and when authentication status changes
   useEffect(() => {
@@ -212,48 +211,96 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     }
   }, [fetchSessions, isAuthenticated]);
 
+  // Polling fallback - refresh sessions every 30 seconds as safety net
+  // This ensures sessions list stays accurate even if WebSocket broadcasts are missed
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    console.log('[useActiveSessions] Starting polling fallback (30s interval)');
+    const pollingInterval = setInterval(() => {
+      console.log('[useActiveSessions] Polling fallback triggered');
+      if (isAuthenticated && accessToken) {
+        fetchSessions();
+      }
+    }, 30000); // Poll every 30 seconds
+
+    return () => {
+      console.log('[useActiveSessions] Stopping polling fallback');
+      clearInterval(pollingInterval);
+    };
+  }, [isAuthenticated, accessToken, fetchSessions]);
+
   // Listen for session updates via WebSocket
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const socket = getSocket();
-    if (!socket) {
-      console.log('[useActiveSessions] Socket not available');
-      return;
-    }
+    // Setup retry interval to wait for socket
+    let retryTimer: ReturnType<typeof setTimeout>;
+    let cleanupFn: (() => void) | null = null;
 
-    const handleSessionUpdate = (data: { timestamp: number }) => {
-      console.log('[useActiveSessions] Session update received:', data);
-      // Refetch sessions when broadcast received (only if still authenticated)
-      if (isAuthenticated && accessToken) {
+    const setupListeners = () => {
+      const socket = getSocket();
+      if (!socket) {
+        console.warn('[useActiveSessions] Socket not ready yet, will retry...');
+        // Retry after 500ms
+        retryTimer = setTimeout(setupListeners, 500);
+        return;
+      }
+
+      console.log('[useActiveSessions] Setting up session-update listener');
+
+      const handleSessionUpdate = (_data: { timestamp: number }) => {
+        console.log('[useActiveSessions] session-update event received, refreshing sessions');
+        // Refetch sessions when broadcast received (only if still authenticated)
+        if (isAuthenticated && accessToken) {
+          fetchSessions();
+        }
+      };
+
+      const handleConnect = () => {
+        console.log('[useActiveSessions] WebSocket connected, refreshing sessions');
+        // CRITICAL: Fetch sessions on connect to catch any missed broadcasts during connection
+        if (isAuthenticated && accessToken) {
+          fetchSessions();
+        }
+      };
+
+      const handleDisconnect = (_reason: string) => {
+        console.log('[useActiveSessions] WebSocket disconnected');
+      };
+
+      // Listen to session updates
+      socket.on('session-update', handleSessionUpdate);
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+
+      // If socket is already connected, fetch immediately
+      // This handles the case where socket connected BEFORE this effect ran
+      if (socket.connected && isAuthenticated && accessToken) {
+        console.log('[useActiveSessions] Socket already connected, fetching sessions immediately');
         fetchSessions();
       }
+
+      // Cleanup function
+      cleanupFn = () => {
+        console.log('[useActiveSessions] Cleaning up session-update listener');
+        socket.off('session-update', handleSessionUpdate);
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+      };
     };
 
-    const handleConnect = () => {
-      console.log('[useActiveSessions] Socket connected, fetching sessions');
-      // Only fetch if still authenticated
-      if (isAuthenticated && accessToken) {
-        fetchSessions();
-      }
-    };
+    // Start setup (will retry if socket not ready)
+    setupListeners();
 
-    const handleDisconnect = (reason: string) => {
-      console.log('[useActiveSessions] Socket disconnected:', reason);
-    };
-
-    // Listen to session updates
-    socket.on('session-update', handleSessionUpdate);
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-
-    console.log('[useActiveSessions] WebSocket listeners registered');
-
+    // Cleanup on unmount
     return () => {
-      socket.off('session-update', handleSessionUpdate);
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      console.log('[useActiveSessions] WebSocket listeners removed');
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      if (cleanupFn) {
+        cleanupFn();
+      }
     };
   }, [isAuthenticated, accessToken, fetchSessions]);
 

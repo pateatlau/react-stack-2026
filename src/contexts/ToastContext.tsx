@@ -15,6 +15,7 @@ interface ToastContextType {
     duration?: number;
   }>;
   addToast: (message: string, type?: ToastType, duration?: number) => string;
+  updateToast: (id: string, message: string) => void;
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
   success: (message: string, duration?: number) => string;

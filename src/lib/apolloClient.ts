@@ -60,10 +60,6 @@ const errorLink = onError((errorResponse: any) => {
       // Handle rate limiting
       if (error.extensions?.code === 'RATE_LIMIT_EXCEEDED') {
         const retryAfter = error.extensions?.retryAfter || 10;
-        console.warn(
-          `[Rate Limit]: Too many requests. Retry after ${retryAfter} seconds.`,
-          `Operation: ${operation.operationName}`
-        );
         return;
       }
 
@@ -79,10 +75,6 @@ const errorLink = onError((errorResponse: any) => {
   if (networkError) {
     // Handle 429 status code
     if ('statusCode' in networkError && networkError.statusCode === 429) {
-      console.warn(
-        `[Rate Limit]: Too many requests to server. Please wait before retrying.`,
-        `Operation: ${operation.operationName}`
-      );
       return;
     }
 
@@ -94,24 +86,7 @@ const errorLink = onError((errorResponse: any) => {
 
 // Logging link for development only
 const loggingLink = new ApolloLink((operation, forward) => {
-  if (import.meta.env.DEV) {
-    console.log(`[GraphQL Request] ${operation.operationName}`, {
-      variables: operation.variables,
-    });
-  }
-
-  const observable = forward(operation);
-
-  // Log response
-  if (import.meta.env.DEV) {
-    observable.subscribe({
-      next: (response) => {
-        console.log(`[GraphQL Response] ${operation.operationName}`, response);
-      },
-    });
-  }
-
-  return observable;
+  return forward(operation);
 });
 
 // Split link to route requests to appropriate transport

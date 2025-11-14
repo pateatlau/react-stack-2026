@@ -25,7 +25,12 @@ apiClient.interceptors.request.use(
 
 // Response interceptor - handle errors and token refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // NOTE: Do NOT broadcast activity updates here!
+    // Session activity should only be tracked from user interactions (ActivityTracker)
+    // Broadcasting on API responses defeats session timeout as polling/automated calls reset the timer
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

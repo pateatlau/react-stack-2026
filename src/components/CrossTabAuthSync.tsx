@@ -20,13 +20,24 @@ export function CrossTabAuthSync() {
 
   // Use ref to track if we're currently processing an event to prevent race conditions
   const processingEventRef = useRef(false);
+  // Use ref to track our own tab ID to ignore our own events
+  const tabIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   const handleAuthEvent = useCallback(
     (event: AuthEvent) => {
+      // CRITICAL: Ignore events from our own tab to prevent race conditions
+      // The storage event can fire in the same tab in some browsers
+      if (event.tabId === tabIdRef.current) {
+        if (DEBUG) {
+          console.log('[CrossTabSync] Ignoring event from own tab:', event.type);
+        }
+        return;
+      }
+
       // Prevent concurrent processing
       if (processingEventRef.current) {
         if (DEBUG) {
-          console.log('[CrossTabSync] Already processing an event, skipping');
+          console.log('[CrossTabSync] Already processing event, skipping');
         }
         return;
       }
@@ -34,17 +45,9 @@ export function CrossTabAuthSync() {
       processingEventRef.current = true;
 
       try {
-        if (DEBUG) {
-          console.log('[CrossTabSync] Handling event:', event.type);
-        }
-
         if (event.type === 'logout') {
           // Another tab logged out - sync logout in this tab
           if (isAuthenticated) {
-            if (DEBUG) {
-              console.log('[CrossTabSync] Syncing logout from another tab');
-            }
-
             // Clear local state (without calling API since other tab already did)
             // Note: Don't call logout() from store to avoid infinite loop
             try {
@@ -71,10 +74,6 @@ export function CrossTabAuthSync() {
         } else if (event.type === 'login') {
           // Another tab logged in - sync login in this tab
           if (!isAuthenticated) {
-            if (DEBUG) {
-              console.log('[CrossTabSync] Syncing login from another tab');
-            }
-
             // Get the current auth state from localStorage
             const authState = getAuthStateFromStorage();
 

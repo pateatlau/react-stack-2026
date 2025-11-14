@@ -42,30 +42,14 @@ export function CrossDeviceAuthSync() {
   const handleForceLogout = useCallback(
     (data: ForceLogoutData) => {
       if (processingLogoutRef.current) {
-        if (DEBUG) {
-          console.log('[CrossDeviceSync] Already processing logout, skipping');
-        }
         return;
       }
-
-      console.log('[CrossDeviceSync] Force logout received:', data);
-      console.log('[CrossDeviceSync] Current access token:', accessToken?.substring(0, 30) + '...');
 
       // If excludeSessionToken is specified, skip logout if it matches our session
       if (data.excludeSessionToken) {
         const currentSessionId = accessToken;
 
-        console.log(
-          '[CrossDeviceSync] Exclude token present:',
-          data.excludeSessionToken.substring(0, 30) + '...'
-        );
-        console.log(
-          '[CrossDeviceSync] Tokens match?',
-          currentSessionId === data.excludeSessionToken
-        );
-
         if (currentSessionId === data.excludeSessionToken) {
-          console.log('[CrossDeviceSync] This session is excluded from logout, ignoring');
           return;
         }
       }
@@ -76,14 +60,7 @@ export function CrossDeviceAuthSync() {
         const currentSessionId = accessToken;
 
         if (currentSessionId !== data.targetSessionId) {
-          if (DEBUG) {
-            console.log('[CrossDeviceSync] Logout not for this session, ignoring');
-          }
           return;
-        }
-
-        if (DEBUG) {
-          console.log('[CrossDeviceSync] Logout targets this session');
         }
       }
 
@@ -127,10 +104,6 @@ export function CrossDeviceAuthSync() {
       return;
     }
 
-    if (DEBUG) {
-      console.log('[CrossDeviceSync] Connecting WebSocket...');
-    }
-
     // Connect to WebSocket server
     const socket = connectWebSocket(accessToken);
 
@@ -142,15 +115,11 @@ export function CrossDeviceAuthSync() {
 
     // Handle connection events
     socket.on('connect', () => {
-      if (DEBUG) {
-        console.log('[CrossDeviceSync] WebSocket connected');
-      }
+      // WebSocket connected
     });
 
     socket.on('disconnect', (reason) => {
-      if (DEBUG) {
-        console.log('[CrossDeviceSync] WebSocket disconnected:', reason);
-      }
+      // WebSocket disconnected
     });
 
     socket.on('connect_error', (error) => {
@@ -159,10 +128,6 @@ export function CrossDeviceAuthSync() {
 
     // Cleanup on unmount or when auth state changes
     return () => {
-      if (DEBUG) {
-        console.log('[CrossDeviceSync] Cleaning up WebSocket listeners');
-      }
-
       socket.off('force-logout', handleForceLogout);
       socket.off('connect');
       socket.off('disconnect');

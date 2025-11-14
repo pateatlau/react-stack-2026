@@ -24,12 +24,8 @@ export function LoginPage() {
     password?: string;
   }>({});
 
-  // Navigate to home when login succeeds
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // NOTE: Navigation on successful login is handled by PublicRoute
+  // No need for useEffect here as it causes double navigation and race conditions
 
   const validateForm = (): boolean => {
     const errors: typeof formErrors = {};

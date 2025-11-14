@@ -4,7 +4,7 @@
  * Uses SessionProvider for shared session state
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { useSession } from '../contexts/SessionContext';
@@ -29,9 +29,9 @@ export function SessionManager({
 }: SessionManagerProps) {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
-  const { warning } = useToast();
-  const { timeRemainingMs, isExpired } = useSession();
-  const hasShownWarningRef = useRef<boolean>(false);
+  const { warning, updateToast, removeToast } = useToast();
+  const { timeRemainingMs, isExpired, formatTimeRemaining } = useSession();
+  const warningToastIdRef = useRef<string | null>(null);
   const hasExpiredRef = useRef<boolean>(false);
 
   // Handle session expiration
@@ -41,10 +41,6 @@ export function SessionManager({
     }
 
     hasExpiredRef.current = true;
-
-    if (debug) {
-      console.log('[SessionManager] Session expired - logging out');
-    }
 
     const performLogout = async () => {
       await logout();
@@ -59,55 +55,92 @@ export function SessionManager({
     performLogout();
   }, [enabled, isAuthenticated, isExpired, logout, navigate, warning, showExpiryToast, debug]);
 
-  // Handle session warning
+  // Format countdown message
+  const formatWarningMessage = useCallback(
+    (ms: number) => {
+      const timeStr = formatTimeRemaining(ms);
+      return `Your session will expire in ${timeStr} due to inactivity. Move your mouse or press a key to stay logged in.`;
+    },
+    [formatTimeRemaining]
+  );
+
+  // Handle session warning with live countdown
   useEffect(() => {
-    if (
-      !enabled ||
-      !isAuthenticated ||
-      !timeRemainingMs ||
-      timeRemainingMs > warningThreshold ||
-      hasShownWarningRef.current
-    ) {
+    // Clear warning toast if user is not authenticated
+    if (!isAuthenticated && warningToastIdRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('[SessionManager] User logged out, clearing warning toast');
+      }
+      removeToast(warningToastIdRef.current);
+      warningToastIdRef.current = null;
       return;
     }
 
-    hasShownWarningRef.current = true;
-
-    const seconds = Math.floor(timeRemainingMs / 1000);
-
-    if (debug) {
-      console.log('[SessionManager] Session warning triggered -', seconds, 'seconds remaining');
+    if (!enabled || !isAuthenticated || timeRemainingMs === null) {
+      return;
     }
 
-    warning(
-      `Your session will expire in ${seconds} seconds due to inactivity. Move your mouse or press a key to stay logged in.`,
-      10000 // Show for 10 seconds
-    );
-  }, [enabled, isAuthenticated, timeRemainingMs, warningThreshold, warning, debug]);
-
-  // Reset warning flag when session is extended (user was active)
-  useEffect(() => {
-    if (timeRemainingMs && timeRemainingMs > warningThreshold) {
-      hasShownWarningRef.current = false;
+    if (import.meta.env.DEV) {
+      console.log(
+        `[SessionManager] timeRemaining: ${Math.floor(timeRemainingMs / 1000)}s, threshold: ${Math.floor(warningThreshold / 1000)}s, hasToast: ${!!warningToastIdRef.current}`
+      );
     }
-  }, [timeRemainingMs, warningThreshold]);
+
+    // Show warning when below threshold
+    if (timeRemainingMs <= warningThreshold && timeRemainingMs > 0) {
+      // Create warning toast if it doesn't exist
+      if (!warningToastIdRef.current) {
+        const message = formatWarningMessage(timeRemainingMs);
+        const toastId = warning(message, 999999999); // Very long duration (persistent)
+        warningToastIdRef.current = toastId || null;
+
+        if (import.meta.env.DEV) {
+          console.log('[SessionManager] Created warning toast:', toastId);
+        }
+      } else {
+        // Update existing toast with countdown
+        const message = formatWarningMessage(timeRemainingMs);
+        updateToast(warningToastIdRef.current, message);
+      }
+    } else if (timeRemainingMs > warningThreshold && warningToastIdRef.current) {
+      // User became active - dismiss warning
+      if (import.meta.env.DEV) {
+        console.log(
+          '[SessionManager] Dismissing warning toast, time increased to:',
+          Math.floor(timeRemainingMs / 1000) + 's'
+        );
+      }
+
+      removeToast(warningToastIdRef.current);
+      warningToastIdRef.current = null;
+    }
+  }, [
+    enabled,
+    isAuthenticated,
+    timeRemainingMs,
+    warningThreshold,
+    warning,
+    updateToast,
+    removeToast,
+    formatWarningMessage,
+  ]);
 
   // Reset expired flag when user logs in
   useEffect(() => {
     if (isAuthenticated && !isExpired) {
       hasExpiredRef.current = false;
-      hasShownWarningRef.current = false;
     }
   }, [isAuthenticated, isExpired]);
 
-  // Debug logging
+  // Cleanup warning toast on unmount
   useEffect(() => {
-    if (debug && isAuthenticated && timeRemainingMs !== null) {
-      const minutes = Math.floor(timeRemainingMs / 60000);
-      const seconds = Math.floor((timeRemainingMs % 60000) / 1000);
-      console.log(`[SessionManager] Time remaining: ${minutes}m ${seconds}s`);
-    }
-  }, [debug, isAuthenticated, timeRemainingMs]);
+    return () => {
+      if (warningToastIdRef.current) {
+        removeToast(warningToastIdRef.current);
+        warningToastIdRef.current = null;
+      }
+    };
+  }, [removeToast]);
 
   // This component doesn't render anything
   return null;

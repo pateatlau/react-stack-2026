@@ -360,12 +360,9 @@ export const useTodos = (options?: {
   // Always call subscription hook but conditionally use it
   const subscriptionData = useTodoSubscription({
     skip: !options?.enableSubscription,
-    onUpdate: (todo) => {
-      if (options?.enableSubscription) {
-        console.log('Todo updated via subscription:', todo);
-        // Don't refetch - Apollo cache is already updated by subscription
-        // The UI will update automatically via cache reactivity
-      }
+    onUpdate: (_todo) => {
+      // Don't refetch - Apollo cache is already updated by subscription
+      // The UI will update automatically via cache reactivity
     },
   });
 

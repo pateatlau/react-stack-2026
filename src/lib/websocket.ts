@@ -36,9 +36,9 @@ export function connectWebSocket(accessToken: string): Socket {
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     timeout: 10000,
-    transports: ['polling', 'websocket'], // Start with polling, upgrade to WebSocket after auth
-    upgrade: true, // Allow upgrade to WebSocket if available
-    rememberUpgrade: false, // Don't remember the upgrade for next connection
+    transports: ['polling'], // Use polling only with load balancer (WebSocket upgrade fails with ip_hash)
+    upgrade: false, // Disable upgrade to WebSocket
+    rememberUpgrade: false,
     forceNew: false,
   });
 
@@ -46,8 +46,6 @@ export function connectWebSocket(accessToken: string): Socket {
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   socket.on('connect', () => {
-    console.log('[WebSocket] Connected to server');
-
     // Start heartbeat (every 30 seconds)
     heartbeatInterval = setInterval(() => {
       socket?.emit('ping');
@@ -55,8 +53,6 @@ export function connectWebSocket(accessToken: string): Socket {
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('[WebSocket] Disconnected:', reason);
-
     // Clear heartbeat
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -66,7 +62,6 @@ export function connectWebSocket(accessToken: string): Socket {
 
   socket.on('pong', () => {
     // Heartbeat response received
-    console.debug('[WebSocket] Heartbeat pong received');
   });
 
   socket.on('connect_error', (error) => {
@@ -74,7 +69,7 @@ export function connectWebSocket(accessToken: string): Socket {
   });
 
   socket.on('reconnect', (attemptNumber) => {
-    console.log('[WebSocket] Reconnected after', attemptNumber, 'attempts');
+    // Reconnected
   });
 
   socket.on('reconnect_error', (error) => {
@@ -96,7 +91,6 @@ export function connectWebSocket(accessToken: string): Socket {
  */
 export function disconnectWebSocket(): void {
   if (socket) {
-    console.log('[WebSocket] Disconnecting...');
     socket.disconnect();
     socket = null;
   }

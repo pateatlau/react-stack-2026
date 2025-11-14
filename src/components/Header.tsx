@@ -16,9 +16,6 @@ export function Header() {
   const { timeRemainingMs, isExpired } = useSession();
   const { sessions } = useActiveSessions();
 
-  // Debug log to see if Header re-renders with updated sessions
-  console.log('[HEADER] Rendering with sessions count:', sessions.length, sessions);
-
   const handleLogout = async () => {
     await logout();
   };
@@ -106,8 +103,8 @@ export function Header() {
 
           {/* User Info & Actions */}
           <div className="flex items-center gap-4">
-            {/* Session Timer */}
-            {!isExpired && timeRemaining && (
+            {/* Session Timer - Always show when authenticated */}
+            {isAuthenticated && timeRemaining !== null && timeRemaining !== undefined && (
               <div
                 className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md text-sm ${
                   timeRemaining <= 60
