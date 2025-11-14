@@ -1,5 +1,5 @@
-// @ts-nocheck
 /* eslint-disable */
+// @ts-nocheck
 import { gql } from '@apollo/client';
 import * as Apollo from '@apollo/client/react';
 export type Maybe<T> = T | null;

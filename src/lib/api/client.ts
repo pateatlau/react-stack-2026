@@ -38,7 +38,6 @@ apiClient.interceptors.response.use(
         // Session expired - force logout
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
-        window.location.href = '/login?reason=session_expired';
         return Promise.reject(error);
       }
 
@@ -64,7 +63,6 @@ apiClient.interceptors.response.use(
         // Refresh failed - logout user
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }

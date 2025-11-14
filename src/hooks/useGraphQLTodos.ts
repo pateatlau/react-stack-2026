@@ -8,7 +8,8 @@
  * - Loading states
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useAuthStore } from '../stores/useAuthStore';
 import {
   useGetTodosQuery,
   useGetTodoQuery,
@@ -42,6 +43,7 @@ export const useGetTodos = (options?: {
   sortBy?: TodoSortField;
   sortOrder?: SortOrder;
 }) => {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   const { data, loading, error, refetch, fetchMore } = useGetTodosQuery({
     variables: {
       page: options?.page || 1,
@@ -50,17 +52,20 @@ export const useGetTodos = (options?: {
       sortBy: options?.sortBy,
       sortOrder: options?.sortOrder,
     },
-    // Fetch from network and cache
     fetchPolicy: 'cache-and-network',
-    // Update cache with network result
     nextFetchPolicy: 'cache-first',
+    context: { userId },
   });
+
+  useEffect(() => {
+    refetch();
+  }, [userId, refetch]);
 
   return {
     todos: data?.todos.data || [],
     meta: data?.todos.meta,
     loading,
-    error: error ? getApolloErrorMessage(error) : null,
+    error,
     refetch,
     fetchMore,
   };

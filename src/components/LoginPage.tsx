@@ -3,7 +3,7 @@
  * User authentication with email and password
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from './Input';
@@ -12,7 +12,7 @@ import { LogIn, AlertCircle } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, isLoading, error, isAuthenticated } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -23,6 +23,13 @@ export function LoginPage() {
     email?: string;
     password?: string;
   }>({});
+
+  // Navigate to home when login succeeds
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const validateForm = (): boolean => {
     const errors: typeof formErrors = {};
@@ -45,24 +52,13 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearError();
-
     if (!validateForm()) {
       return;
     }
-
-    try {
-      await login({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      });
-
-      // Redirect to home on success
-      navigate('/', { replace: true });
-    } catch (err) {
-      // Error is handled by useAuth store
-      console.error('Login failed:', err);
-    }
+    await login({
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,10 +68,8 @@ export function LoginPage() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    // Clear general error
-    if (error) {
-      clearError();
-    }
+    // Don't clear general API error here - let user read it
+    // Error will be cleared when they submit the form again
   };
 
   return (

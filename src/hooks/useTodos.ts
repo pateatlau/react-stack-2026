@@ -6,7 +6,8 @@ import type { CreateTodoInput, UpdateTodoInput, Todo } from '../types/todo';
 export const todoKeys = {
   all: ['todos'] as const,
   lists: () => [...todoKeys.all, 'list'] as const,
-  list: (params?: { page?: number; limit?: number }) => [...todoKeys.lists(), params] as const,
+  list: (userId: string | null, params?: { page?: number; limit?: number }) =>
+    [...todoKeys.lists(), { userId, ...params }] as const,
   details: () => [...todoKeys.all, 'detail'] as const,
   detail: (id: string) => [...todoKeys.details(), id] as const,
 };
@@ -14,9 +15,12 @@ export const todoKeys = {
 /**
  * Hook to fetch all todos with pagination
  */
+import { useAuthStore } from '../stores/useAuthStore';
+
 export const useTodos = (params?: { page?: number; limit?: number }) => {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   return useQuery({
-    queryKey: todoKeys.list(params),
+    queryKey: todoKeys.list(userId, params),
     queryFn: () => todosApi.getAll(params),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

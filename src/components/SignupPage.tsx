@@ -3,7 +3,7 @@
  * User registration with name, email, password, and role selection
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from './Input';
@@ -14,7 +14,7 @@ import type { Role } from '../types/auth.types';
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signup, isLoading, error, clearError } = useAuth();
+  const { signup, isLoading, error, isAuthenticated } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,6 +30,13 @@ export function SignupPage() {
     password?: string;
     confirmPassword?: string;
   }>({});
+
+  // Navigate to home when signup succeeds
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const validateForm = (): boolean => {
     const errors: typeof formErrors = {};
@@ -72,29 +79,19 @@ export function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearError();
 
     if (!validateForm()) {
       return;
     }
 
-    try {
-      await signup({
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        role: formData.role,
-      });
-
-      // Redirect to home on success
-      navigate('/', { replace: true });
-    } catch (err: unknown) {
-      // Error is handled by useAuth store
-      console.error('Signup failed:', err);
-      if (err && typeof err === 'object' && 'response' in err) {
-        console.error('Error response:', (err as { response?: { data?: unknown } }).response?.data);
-      }
-    }
+    // Call signup - it will update state (either success or error)
+    // Navigation is handled by useEffect when isAuthenticated becomes true
+    await signup({
+      name: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      role: formData.role,
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -104,10 +101,8 @@ export function SignupPage() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    // Clear general error
-    if (error) {
-      clearError();
-    }
+    // Don't clear general API error here - let user read it
+    // Error will be cleared when they submit the form again
   };
 
   return (

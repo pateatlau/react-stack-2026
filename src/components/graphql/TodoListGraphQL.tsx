@@ -36,9 +36,12 @@ export const TodoListGraphQL = () => {
   });
 
   // Check if error is rate limit related
+  const errorMessage = typeof error === 'string' ? error : (error?.message ?? String(error));
   const isRateLimitError =
-    error &&
-    (error.includes('429') || error.includes('Too many requests') || error.includes('Rate limit'));
+    errorMessage &&
+    (errorMessage.includes('429') ||
+      errorMessage.includes('Too many requests') ||
+      errorMessage.includes('Rate limit'));
 
   const handleEditTodo = (todo: Todo) => {
     setEditingTodo(todo);
@@ -180,7 +183,7 @@ export const TodoListGraphQL = () => {
           <div className="flex items-start gap-3">
             {isRateLimitError ? (
               <svg
-                className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"
+                className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -192,7 +195,7 @@ export const TodoListGraphQL = () => {
               </svg>
             ) : (
               <svg
-                className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                className="w-5 h-5 text-red-600 shrink-0 mt-0.5"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -220,7 +223,7 @@ export const TodoListGraphQL = () => {
                   <div className="bg-yellow-100 border border-yellow-200 rounded p-3 text-xs text-yellow-800">
                     <p className="font-medium mb-1">💡 Quick fixes:</p>
                     <ul className="list-disc list-inside space-y-1 ml-2">
-                      <li>Wait 10 seconds and click "Retry" below</li>
+                      <li>Wait 10 seconds and click &quot;Retry&quot; below</li>
                       <li>Refresh the page to reset the connection</li>
                       <li>The backend rate limit is 10 requests per 10 seconds</li>
                     </ul>
@@ -231,7 +234,7 @@ export const TodoListGraphQL = () => {
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-red-700">{error}</p>
+                <p className="text-sm text-red-700">{errorMessage}</p>
               )}
               <button
                 onClick={() => refetch()}

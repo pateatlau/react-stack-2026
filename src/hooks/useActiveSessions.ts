@@ -15,6 +15,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../stores/useAuthStore';
 import { getSocket } from '../lib/websocket';
+import { apiClient } from '../lib/api/client';
 
 // Session interface matching backend response
 export interface ActiveSession {
@@ -43,10 +44,8 @@ interface UseActiveSessionsReturn {
   refresh: () => Promise<void>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
-
 export function useActiveSessions(): UseActiveSessionsReturn {
-  const { accessToken, isAuthenticated } = useAuthStore();
+  const { accessToken, isAuthenticated, logout } = useAuthStore();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,45 +70,58 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     setError(null);
 
     try {
-      console.log('[useActiveSessions] Fetching from:', `${API_BASE_URL}/api/auth/sessions`);
-      const response = await fetch(`${API_BASE_URL}/api/auth/sessions`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log('[useActiveSessions] Fetching sessions via apiClient');
+      const response = await apiClient.get('/api/auth/sessions');
+      console.log('[useActiveSessions] Response data:', response.data);
 
-      console.log('[useActiveSessions] Response status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch sessions: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('[useActiveSessions] Response data:', data);
-
-      if (data.success && data.data) {
+      if (response.data.success && response.data.data) {
         // Backend returns data.data.sessions (nested structure)
-        const sessionsArray = Array.isArray(data.data.sessions)
-          ? data.data.sessions
-          : Array.isArray(data.data)
-            ? data.data
+        const sessionsArray = Array.isArray(response.data.data.sessions)
+          ? response.data.data.sessions
+          : Array.isArray(response.data.data)
+            ? response.data.data
             : [];
         console.log('[useActiveSessions] Sessions array:', sessionsArray.length, 'sessions');
         setSessions(sessionsArray);
       } else {
-        throw new Error(data.message || 'Failed to fetch sessions');
+        throw new Error(response.data.message || 'Failed to fetch sessions');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('[useActiveSessions] Error fetching sessions:', err);
+
+      // Check if it's a 401 error indicating session expiration
+      if (err && typeof err === 'object' && 'response' in err) {
+        const error = err as {
+          response?: { status?: number; data?: { code?: string; message?: string } };
+        };
+
+        if (error.response?.status === 401) {
+          const errorCode = error.response?.data?.code;
+
+          console.log('[useActiveSessions] 401 error detected, code:', errorCode);
+
+          // If session expired, logout the user
+          if (errorCode === 'SESSION_EXPIRED') {
+            console.log('[useActiveSessions] Session expired, logging out user');
+            await logout();
+            // Don't set error state since we're logging out
+            return;
+          }
+
+          // For other 401 errors, also logout as the token is invalid
+          console.log('[useActiveSessions] Invalid token, logging out user');
+          await logout();
+          return;
+        }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch sessions';
       setError(errorMessage);
       setSessions([]);
-      console.error('[useActiveSessions] Error fetching sessions:', err);
     } finally {
       setLoading(false);
     }
-  }, [accessToken, isAuthenticated]);
+  }, [accessToken, isAuthenticated, logout]);
 
   // Logout a specific device
   const logoutDevice = useCallback(
@@ -127,34 +139,33 @@ export function useActiveSessions(): UseActiveSessionsReturn {
           socket.emit('logout-device', { sessionId });
         }
 
-        // Then call API to delete the session
-        const response = await fetch(`${API_BASE_URL}/api/auth/sessions/${sessionId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        // Then call API to delete the session using apiClient
+        const response = await apiClient.delete(`/api/auth/sessions/${sessionId}`);
 
-        if (!response.ok) {
-          throw new Error(`Failed to logout device: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to logout device');
+        if (!response.data.success) {
+          throw new Error(response.data.message || 'Failed to logout device');
         }
 
         // Refresh sessions list
         await fetchSessions();
-      } catch (err) {
+      } catch (err: unknown) {
+        // Check if it's a 401 error
+        if (err && typeof err === 'object' && 'response' in err) {
+          const error = err as { response?: { status?: number; data?: { code?: string } } };
+
+          if (error.response?.status === 401) {
+            console.log('[useActiveSessions] 401 during logout device, logging out user');
+            await logout();
+            return;
+          }
+        }
+
         const errorMessage = err instanceof Error ? err.message : 'Failed to logout device';
         setError(errorMessage);
         throw err;
       }
     },
-    [accessToken, isAuthenticated, fetchSessions]
+    [accessToken, isAuthenticated, fetchSessions, logout]
   );
 
   // Logout all other devices (keep current session)
@@ -166,42 +177,42 @@ export function useActiveSessions(): UseActiveSessionsReturn {
     setError(null);
 
     try {
-      // Call API to delete all other sessions
+      // Call API to delete all other sessions using apiClient
       // The backend will handle WebSocket broadcast with excludeSessionToken
-      const response = await fetch(`${API_BASE_URL}/api/auth/sessions/all`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiClient.delete('/api/auth/sessions/all');
 
-      if (!response.ok) {
-        throw new Error(`Failed to logout all devices: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to logout all devices');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to logout all devices');
       }
 
       // Refresh sessions list
       await fetchSessions();
-    } catch (err) {
+    } catch (err: unknown) {
+      // Check if it's a 401 error
+      if (err && typeof err === 'object' && 'response' in err) {
+        const error = err as { response?: { status?: number; data?: { code?: string } } };
+
+        if (error.response?.status === 401) {
+          console.log('[useActiveSessions] 401 during logout all, logging out user');
+          await logout();
+          return;
+        }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to logout all devices';
       setError(errorMessage);
       throw err;
     }
-  }, [accessToken, isAuthenticated, fetchSessions]);
+  }, [accessToken, isAuthenticated, fetchSessions, logout]);
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount and when authentication status changes
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    if (isAuthenticated) {
+      fetchSessions();
+    }
+  }, [fetchSessions, isAuthenticated]);
 
   // Listen for session updates via WebSocket
-  // Use a ref to avoid dependency on fetchSessions
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -213,13 +224,18 @@ export function useActiveSessions(): UseActiveSessionsReturn {
 
     const handleSessionUpdate = (data: { timestamp: number }) => {
       console.log('[useActiveSessions] Session update received:', data);
-      // Refetch sessions when broadcast received
-      fetchSessions();
+      // Refetch sessions when broadcast received (only if still authenticated)
+      if (isAuthenticated && accessToken) {
+        fetchSessions();
+      }
     };
 
     const handleConnect = () => {
       console.log('[useActiveSessions] Socket connected, fetching sessions');
-      fetchSessions();
+      // Only fetch if still authenticated
+      if (isAuthenticated && accessToken) {
+        fetchSessions();
+      }
     };
 
     const handleDisconnect = (reason: string) => {
@@ -239,8 +255,7 @@ export function useActiveSessions(): UseActiveSessionsReturn {
       socket.off('disconnect', handleDisconnect);
       console.log('[useActiveSessions] WebSocket listeners removed');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]); // Only depend on isAuthenticated, fetchSessions is in the closure
+  }, [isAuthenticated, accessToken, fetchSessions]);
 
   return {
     sessions,
