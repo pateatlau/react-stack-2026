@@ -3,10 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "dev:local": "npm run use:local && vite",
-    "dev:caddy": "npm run use:caddy && vite",
+    "dev:all": "concurrently \"npm run dev --workspace=apps/shell\" \"npm run dev --workspace=apps/auth-mfe\" \"npm run dev --workspace=apps/todos-mfe\" \"npm run dev --workspace=apps/chatbot-mfe\"",
+    "dev:mf": "npm run build:remotes && concurrently \"npm run preview --workspace=apps/auth-mfe\" \"npm run preview --workspace=apps/todos-mfe\" \"npm run preview --workspace=apps/chatbot-mfe\" \"npm run dev --workspace=apps/shell\"",
+    "build:remotes": "npm run build --workspace=apps/auth-mfe && npm run build --workspace=apps/todos-mfe && npm run build --workspace=apps/chatbot-mfe",
+    "dev:shell": "npm run dev --workspace=apps/shell",
+    "dev:auth": "npm run dev --workspace=apps/auth-mfe",
+    "dev:todos": "npm run dev --workspace=apps/todos-mfe",
+    "dev:chatbot": "npm run dev --workspace=apps/chatbot-mfe",
+    "build:all": "npm run build --workspaces",
+    "build:shell": "npm run build --workspace=apps/shell",
+    "dev": "npm run dev:all",
+    "dev:local": "npm run use:local && npm run dev:all",
+    "dev:caddy": "npm run use:caddy && npm run dev:all",
     "use:local": "cp .env.local .env.development && echo '✓ Switched to LOCAL backend (port 4000)'",
     "use:caddy": "cp .env.caddy .env.development && echo '✓ Switched to CADDY backend (port 8080)'",
     "build": "vite build",
@@ -34,6 +47,7 @@
     "docker:compose:logs:dev": "docker-compose -f docker-compose.dev.yml logs -f"
   },
   "dependencies": {
+    "concurrently": "^9.1.0",
     "@apollo/client": "^4.0.9",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-query-devtools": "^5.90.2",
