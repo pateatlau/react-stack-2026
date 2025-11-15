@@ -39,7 +39,7 @@ export function useSessionTimer(options: UseSessionTimerOptions = {}) {
   useEffect(() => {
     const fetchSessionTimeout = async () => {
       try {
-        const response = await apiClient.get('/api/auth/config');
+        const response = await apiClient.get('/auth/config');
         if (response.data.success && response.data.data.sessionTimeoutMs) {
           const timeout = response.data.data.sessionTimeoutMs;
           SESSION_TIMEOUT_MS = timeout;
